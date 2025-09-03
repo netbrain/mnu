@@ -1,0 +1,203 @@
+package main
+
+import (
+	"crypto/sha256"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"strconv"
+	"syscall"
+	"time"
+
+	"github.com/atotto/clipboard"
+	tea "github.com/charmbracelet/bubbletea"
+	uipkg "github.com/netbrain/bwmenu/internal/ui"
+	bwpkg "github.com/netbrain/bwmenu/internal/bw"
+
+	cfgpkg "github.com/netbrain/bwmenu/internal/config"
+	"github.com/netbrain/bwmenu/internal/debugflag"
+	"github.com/netbrain/bwmenu/internal/keychain"
+	"github.com/netbrain/bwmenu/internal/serve"
+	"github.com/netbrain/bwmenu/internal/util"
+)
+
+var bwManager bwpkg.Manager
+var debug bool
+
+// This is the new subcommand logic
+func clearClipboardSubcommand() {
+	if len(os.Args) < 3 {
+		fmt.Println("Usage: bwmenu clear-clipboard <timeout_seconds> <unique_id> (content via stdin)")
+		os.Exit(1)
+	}
+
+	// Read content from stdin to avoid exposing secrets in process args
+	contentBytes, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		fmt.Printf("Failed to read content from stdin: %v\n", err)
+		os.Exit(1)
+	}
+	// Compute hash of original content for sanity check and then clear buffers later
+	origHash := sha256.Sum256(contentBytes)
+	content := string(contentBytes)
+	// Zero the input bytes ASAP after constructing the string copy
+	for i := range contentBytes {
+		contentBytes[i] = 0
+	}
+
+	timeoutSeconds, err := strconv.Atoi(os.Args[1])
+	if err != nil {
+		fmt.Printf("Invalid timeout: %v\n", err)
+		os.Exit(1)
+	}
+	uniqueID := os.Args[2]
+
+	configDir, err := util.GetConfigDir()
+	if err != nil {
+		fmt.Printf("Failed to get config directory: %v\n", err)
+		os.Exit(1)
+	}
+	fifoPath := filepath.Join(configDir, "clipboard_clearer_"+uniqueID+".fifo")
+
+	// Create the named pipe
+	if err := syscall.Mkfifo(fifoPath, 0600); err != nil {
+		fmt.Printf("Failed to create FIFO: %v\n", err)
+		os.Exit(1)
+	}
+	defer os.Remove(fifoPath) // Clean up the FIFO on exit
+
+	// Copy content to clipboard
+	if err := clipboard.WriteAll(content); err != nil {
+		fmt.Printf("Failed to copy to clipboard: %v\n", err)
+		os.Exit(1)
+	}
+	// Immediately drop the content string reference to reduce exposure window
+	content = ""
+
+	cancelChan := make(chan struct{})
+	go func() {
+		// Open the FIFO for reading (blocks until a writer connects)
+		fifo, err := os.OpenFile(fifoPath, os.O_RDONLY, 0600)
+		if err != nil {
+			fmt.Printf("Failed to open FIFO for reading: %v\n", err)
+			return
+		}
+		defer fifo.Close()
+
+		// Read from the FIFO (blocks until data is written)
+		buffer := make([]byte, 1)
+		_, err = fifo.Read(buffer)
+		if err != nil && err != io.EOF {
+			fmt.Printf("Error reading from FIFO: %v\n", err)
+			return
+		}
+		close(cancelChan) // Signal cancellation
+	}()
+
+	select {
+	case <-time.After(time.Duration(timeoutSeconds) * time.Second):
+		// Timeout reached, clear clipboard only if clipboard still contains our original content
+		current, err := clipboard.ReadAll()
+		if err != nil {
+			fmt.Printf("Failed to read clipboard for sanity check: %v\n", err)
+			os.Exit(1)
+		}
+		curHash := sha256.Sum256([]byte(current))
+		if curHash != origHash {
+			// Clipboard changed; do not clear
+			fmt.Println("Clipboard content changed; skipping clear.")
+			return
+		}
+		if err := clipboard.WriteAll(""); err != nil {
+			fmt.Printf("Failed to clear clipboard: %v\n", err)
+			os.Exit(1)
+		}
+	case <-cancelChan:
+		// Cancel signal received, do not clear clipboard
+		fmt.Println("Clipboard clearer cancelled.")
+	}
+}
+
+func main() {
+	// Check for subcommand
+	if len(os.Args) > 1 && os.Args[1] == "clear-clipboard" {
+		os.Args = os.Args[1:] // Shift arguments for subcommand
+		clearClipboardSubcommand()
+		return
+	}
+
+	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if debug {
+		debugflag.Enabled = true
+		f, err := tea.LogToFile("debug.log", "debug")
+		if err != nil {
+			fmt.Println("fatal:", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		log.Println("Debug is enabled")
+	}
+
+	config, err := cfgpkg.Load()
+	if err != nil {
+		fmt.Printf("Alas, there's been an error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check for existing session key and set BW_SESSION if found
+	sessionKey, err := keychain.GetSessionKey()
+	if err == nil && sessionKey != "" {
+		os.Setenv("BW_SESSION", sessionKey)
+	}
+
+	var bwServeCmd *exec.Cmd
+	if config.ApiMode {
+		apiUrl, cmd, err := serve.Start()
+		if err != nil {
+			fmt.Printf("Alas, there's been an error: %v\n", err)
+			os.Exit(1)
+		}
+		bwServeCmd = cmd
+		bwManager = bwpkg.NewAPIManager(apiUrl)
+	} else {
+		bwManager = bwpkg.NewProcessManager()
+	}
+
+	if debug {
+		// You can redirect the output to a file like this:
+		// f, err := tea.LogToFile("debug.log", "debug")
+		// if err != nil {
+		// 	fmt.Println("fatal:", err)
+		// 	os.Exit(1)
+		// }
+		// defer f.Close()
+	}
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		if bwServeCmd != nil {
+			bwServeCmd.Process.Kill()
+		}
+		os.Exit(0)
+	}()
+
+	p := tea.NewProgram(uipkg.InitialModel(bwManager, config))
+
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("Alas, there's been an error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if bwServeCmd != nil {
+		bwServeCmd.Process.Kill()
+	}
+}
