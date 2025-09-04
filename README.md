@@ -161,6 +161,8 @@ Notes
   - If another bwmenu TUI is already running, a new invocation exits immediately.
 - Pre-warm Bitwarden API server in the background for faster startups:
   - bwmenu serve    # starts a background advertiser for `bw serve`; run it with & to keep it in the background
+- App runner (search PATH commands and execute):
+  - bwmenu apps     # lists executables found in PATH; Enter to run
 
 - Keybindings (default):
   - Global

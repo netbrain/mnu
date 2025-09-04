@@ -13,10 +13,12 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+	"strings"
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 	uipkg "github.com/netbrain/bwmenu/internal/ui"
+	runner "github.com/netbrain/bwmenu/internal/runner"
 	bwpkg "github.com/netbrain/bwmenu/internal/bw"
 
 	cfgpkg "github.com/netbrain/bwmenu/internal/config"
@@ -135,6 +137,56 @@ func serveSubcommand() {
 	}
 }
 
+func appsMain() {
+	// single-instance guard for the runner
+	lockFile, err := util.AcquireNamedLock("bwmenu-apps.lock")
+	if err != nil {
+		fmt.Println("bwmenu apps is already running; exiting.")
+		os.Exit(0)
+	}
+	defer util.ReleaseAppLock(lockFile)
+
+	p := tea.NewProgram(runner.InitialModel())
+	m, err := p.Run()
+	if err != nil {
+		fmt.Printf("apps: %v\n", err)
+		os.Exit(1)
+	}
+	if rm, ok := m.(runner.Model); ok {
+		if rm.SelectedPath() != "" {
+			// Launch the selected program as a detached background process and exit bwmenu
+			devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
+			if err != nil {
+				fmt.Printf("failed to open %s: %v\n", os.DevNull, err)
+				os.Exit(1)
+			}
+			defer devNull.Close()
+
+			// Detect Flatpak exported wrappers and run via `flatpak run <appID>`
+			launchPath := rm.SelectedPath()
+			var cmd *exec.Cmd
+			if strings.Contains(launchPath, "/flatpak/exports/bin/") {
+				appID := filepath.Base(launchPath)
+				cmd = exec.Command("flatpak", "run", appID)
+			} else {
+				cmd = exec.Command(launchPath)
+			}
+			cmd.Stdin = devNull
+			cmd.Stdout = devNull
+			cmd.Stderr = devNull
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				Setsid: true, // start a new session (detach from controlling terminal)
+			}
+			if err := cmd.Start(); err != nil {
+				fmt.Printf("failed to start %s: %v\n", launchPath, err)
+				os.Exit(1)
+			}
+			// Do not wait; exit bwmenu immediately after spawning
+			return
+		}
+	}
+}
+
 func main() {
 	// Check for subcommands that bypass the single-instance guard
 	if len(os.Args) > 1 {
@@ -145,6 +197,9 @@ func main() {
 			return
 		case "serve":
 			serveSubcommand()
+			return
+		case "apps":
+			appsMain()
 			return
 		}
 	}
