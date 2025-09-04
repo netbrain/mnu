@@ -44,14 +44,20 @@ func Start() (string, *exec.Cmd, error) {
 // FindAdvertised connects to the Unix domain socket (if any) to obtain the API URL.
 func FindAdvertised() (string, bool) {
 	configDir, err := util.GetConfigDir()
-	if err != nil { return "", false }
+	if err != nil {
+		return "", false
+	}
 	sock := filepath.Join(configDir, advertiseSock)
 	conn, err := net.DialTimeout("unix", sock, 200*time.Millisecond)
-	if err != nil { return "", false }
+	if err != nil {
+		return "", false
+	}
 	defer conn.Close()
 	conn.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
 	b, err := bufio.NewReader(conn).ReadBytes('\n')
-	if err != nil && len(b) == 0 { return "", false }
+	if err != nil && len(b) == 0 {
+		return "", false
+	}
 	return string(bytes.TrimSpace(b)), true
 }
 
@@ -59,26 +65,34 @@ func FindAdvertised() (string, bool) {
 // It blocks forever handling simple info requests from clients.
 func RunAdvertiser() error {
 	apiURL, cmd, err := Start()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer func() { _ = cmd.Process.Kill() }()
 
 	configDir, err := util.GetConfigDir()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	sock := filepath.Join(configDir, advertiseSock)
 	// Remove any stale socket
 	_ = os.Remove(sock)
 	ln, err := net.Listen("unix", sock)
-	if err != nil { return fmt.Errorf("failed to listen on socket: %w", err) }
+	if err != nil {
+		return fmt.Errorf("failed to listen on socket: %w", err)
+	}
 	defer func() { ln.Close(); _ = os.Remove(sock) }()
 	_ = os.Chmod(sock, 0600)
 
 	for {
 		conn, err := ln.Accept()
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		go func(c net.Conn) {
 			defer c.Close()
 			_, _ = c.Write([]byte(apiURL + "\n"))
-		} (conn)
+		}(conn)
 	}
 }
 
@@ -97,4 +111,3 @@ func waitReady(apiURL string, timeout time.Duration) error {
 	}
 	return fmt.Errorf("bw serve did not become ready on %s within timeout", apiURL)
 }
-

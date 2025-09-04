@@ -27,8 +27,8 @@ type Model struct {
 	search textinput.Model
 	list   list.Model
 
-	all   []execItem
-	vis   []execItem
+	all []execItem
+	vis []execItem
 
 	selectedPath string
 }
@@ -70,7 +70,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		contentWidth := m.width
-		if contentWidth < 1 { contentWidth = 1 }
+		if contentWidth < 1 {
+			contentWidth = 1
+		}
 		m.search.Width = contentWidth - len(m.search.Prompt)
 		m.list.SetSize(m.width, max(5, m.height-4))
 		return m, nil
@@ -83,7 +85,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.search.SetValue("")
 				m.vis = m.all
 				li := make([]list.Item, len(m.vis))
-				for i := range m.vis { li[i] = m.vis[i] }
+				for i := range m.vis {
+					li[i] = m.vis[i]
+				}
 				m.list.SetItems(li)
 				return m, nil
 			}
@@ -114,7 +118,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vis = vis
 		}
 		li := make([]list.Item, len(m.vis))
-		for i := range m.vis { li[i] = m.vis[i] }
+		for i := range m.vis {
+			li[i] = m.vis[i]
+		}
 		m.list.SetItems(li)
 		// only navigation goes to list
 		if isListNavKey(msg) {
@@ -129,10 +135,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	return m.search.View()+"\n\n" + m.list.View()
+	return m.search.View() + "\n\n" + m.list.View()
 }
 
-func max(a, b int) int { if a > b { return a }; return b }
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
 
 // isListNavKey duplicated to avoid importing ui package
 func isListNavKey(k tea.KeyMsg) bool {
@@ -153,27 +164,43 @@ func discoverExecutables() []execItem {
 	var out []execItem
 	paths := strings.Split(os.Getenv("PATH"), ":")
 	for _, dir := range paths {
-		if dir == "" { continue }
+		if dir == "" {
+			continue
+		}
 		entries, err := os.ReadDir(dir)
-		if err != nil { continue }
+		if err != nil {
+			continue
+		}
 		for _, de := range entries {
-			if de.IsDir() { continue }
+			if de.IsDir() {
+				continue
+			}
 			name := de.Name()
 			// Skip hidden files to reduce noise
-			if strings.HasPrefix(name, ".") { continue }
+			if strings.HasPrefix(name, ".") {
+				continue
+			}
 			full := filepath.Join(dir, name)
 			// Follow symlinks and check target mode; this catches Nix-style wrappers
 			info, err := os.Stat(full)
-			if err != nil { continue }
-			if info.Mode()&0111 == 0 { continue }
+			if err != nil {
+				continue
+			}
+			if info.Mode()&0111 == 0 {
+				continue
+			}
 			// Resolve symlinks to a canonical target path if possible
 			target := full
 			if resolved, err := filepath.EvalSymlinks(full); err == nil && resolved != "" {
 				target = resolved
 			}
 			lower := strings.ToLower(name)
-			if _, ok := seenNames[lower]; ok { continue }
-			if _, ok := seenTargets[target]; ok { continue }
+			if _, ok := seenNames[lower]; ok {
+				continue
+			}
+			if _, ok := seenTargets[target]; ok {
+				continue
+			}
 			seenNames[lower] = struct{}{}
 			seenTargets[target] = struct{}{}
 			out = append(out, execItem{Name: name, Path: full})

@@ -29,4 +29,3 @@ func newActionsDelegate() list.DefaultDelegate {
 	delegate.Styles.SelectedDesc = selectedItemStyle // not used but set
 	return delegate
 }
-

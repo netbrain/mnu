@@ -86,10 +86,9 @@ func getSessionKeyPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-configDir := filepath.Join(home, ".config", "mnu")
+	configDir := filepath.Join(home, ".config", "mnu")
 	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return "", err
 	}
 	return filepath.Join(configDir, "session"), nil
 }
-
