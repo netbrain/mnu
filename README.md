@@ -47,6 +47,93 @@ This repo includes a flake that builds and runs bwmenu, and ensures the Bitwarde
 The dev shell includes Go, GitHub CLI, and bitwarden-cli:
 - nix develop
 
+#### NixOS (flakes) declarative install
+
+Option A: reference the package directly in your NixOS configuration
+
+  # flake.nix
+  {
+    description = "My host";
+
+    inputs = {
+      nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+      bwmenu.url = "github:netbrain/bwmenu"; # or a local path: path:../bwmenu
+    };
+
+    outputs = { self, nixpkgs, bwmenu, ... }@inputs: let
+      system = "x86_64-linux";
+      lib = nixpkgs.lib;
+    in {
+      nixosConfigurations.my-host = lib.nixosSystem {
+        inherit system;
+        modules = [
+          ({ pkgs, ... }: {
+            environment.systemPackages = [
+              bwmenu.packages.${system}.bwmenu
+            ];
+          })
+        ];
+      };
+    };
+  }
+
+Option B: expose it via an overlay and install as pkgs.bwmenu
+
+  # flake.nix
+  {
+    inputs = {
+      nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+      bwmenu.url = "github:netbrain/bwmenu";
+    };
+
+    outputs = { self, nixpkgs, bwmenu, ... }: let
+      system = "x86_64-linux";
+      overlays = [ (final: prev: { bwmenu = bwmenu.packages.${final.system}.bwmenu; }) ];
+    in {
+      nixosConfigurations.my-host = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          ({ pkgs, ... }: {
+            nixpkgs.overlays = overlays;
+            environment.systemPackages = [ pkgs.bwmenu ];
+          })
+        ];
+      };
+    };
+  }
+
+Home Manager (flakes) example
+
+If you manage user packages via Home Manager:
+
+  # flake.nix
+  {
+    inputs = {
+      nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+      home-manager.url = "github:nix-community/home-manager";
+      bwmenu.url = "github:netbrain/bwmenu";
+    };
+
+    outputs = { self, nixpkgs, home-manager, bwmenu, ... }: let
+      system = "x86_64-linux";
+    in {
+      homeConfigurations.user = home-manager.lib.homeManagerConfiguration {
+        inherit system;
+        pkgs = import nixpkgs { inherit system; };
+        modules = [
+          ({ pkgs, ... }: {
+            home.packages = [ bwmenu.packages.${pkgs.system}.bwmenu ];
+          })
+        ];
+      };
+    };
+  }
+
+Notes
+- The wrapped bwmenu binary places bitwarden-cli (bw) on PATH automatically; you do not need to add bw separately.
+- Replace x86_64-linux with your system (e.g., aarch64-linux) as appropriate.
+- For local development, you can use a path input: bwmenu.url = "path:../bwmenu".
+
 ### With Go
 
 - go 1.21+ recommended
@@ -69,8 +156,12 @@ The dev shell includes Go, GitHub CLI, and bitwarden-cli:
 
 ## Usage
 
-- Start the TUI:
+- Start the TUI (single instance):
   - bwmenu
+  - If another bwmenu TUI is already running, a new invocation exits immediately.
+- Pre-warm Bitwarden API server in the background for faster startups:
+  - bwmenu serve    # starts a background advertiser for `bw serve`; run it with & to keep it in the background
+
 - Keybindings (default):
   - Global
     - Ctrl-C: quit

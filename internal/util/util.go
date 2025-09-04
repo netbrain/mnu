@@ -3,6 +3,7 @@ package util
 import (
 	"os"
 	"path/filepath"
+	"syscall"
 )
 
 // GetConfigDir returns ~/.config/bwmenu, creating it if necessary.
@@ -16,5 +17,31 @@ func GetConfigDir() (string, error) {
 		return "", err
 	}
 	return configDir, nil
+}
+
+// AcquireAppLock attempts to acquire an exclusive, non-blocking lock on a lock file
+// in the bwmenu config directory. It returns the open file handle which must be kept
+// open for the lifetime of the process to hold the lock. Call ReleaseAppLock to unlock.
+func AcquireAppLock() (*os.File, error) {
+	configDir, err := GetConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	lockPath := filepath.Join(configDir, "bwmenu.lock")
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	return f, nil
+}
+
+// ReleaseAppLock releases the lock acquired by AcquireAppLock.
+func ReleaseAppLock(f *os.File) error {
+	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	return f.Close()
 }
 

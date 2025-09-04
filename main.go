@@ -123,16 +123,42 @@ func clearClipboardSubcommand() {
 	}
 }
 
-func main() {
-	// Check for subcommand
-	if len(os.Args) > 1 && os.Args[1] == "clear-clipboard" {
-		os.Args = os.Args[1:] // Shift arguments for subcommand
-		clearClipboardSubcommand()
+func serveSubcommand() {
+	// If already advertised, do nothing.
+	if url, ok := serve.FindAdvertised(); ok {
+		fmt.Printf("bw serve already running at %s\n", url)
 		return
+	}
+	if err := serve.RunAdvertiser(); err != nil {
+		fmt.Printf("Failed to run bw serve advertiser: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func main() {
+	// Check for subcommands that bypass the single-instance guard
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "clear-clipboard":
+			os.Args = os.Args[1:]
+			clearClipboardSubcommand()
+			return
+		case "serve":
+			serveSubcommand()
+			return
+		}
 	}
 
 	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
 	flag.Parse()
+
+	// Single-instance guard for the TUI
+	lockFile, err := util.AcquireAppLock()
+	if err != nil {
+		fmt.Println("bwmenu is already running; exiting.")
+		os.Exit(0)
+	}
+	defer util.ReleaseAppLock(lockFile)
 
 	if debug {
 		debugflag.Enabled = true
@@ -159,25 +185,19 @@ func main() {
 
 	var bwServeCmd *exec.Cmd
 	if config.ApiMode {
-		apiUrl, cmd, err := serve.Start()
-		if err != nil {
-			fmt.Printf("Alas, there's been an error: %v\n", err)
-			os.Exit(1)
+		if apiUrl, ok := serve.FindAdvertised(); ok {
+			bwManager = bwpkg.NewAPIManager(apiUrl)
+		} else {
+			apiUrl, cmd, err := serve.Start()
+			if err != nil {
+				fmt.Printf("Alas, there's been an error: %v\n", err)
+				os.Exit(1)
+			}
+			bwServeCmd = cmd
+			bwManager = bwpkg.NewAPIManager(apiUrl)
 		}
-		bwServeCmd = cmd
-		bwManager = bwpkg.NewAPIManager(apiUrl)
 	} else {
 		bwManager = bwpkg.NewProcessManager()
-	}
-
-	if debug {
-		// You can redirect the output to a file like this:
-		// f, err := tea.LogToFile("debug.log", "debug")
-		// if err != nil {
-		// 	fmt.Println("fatal:", err)
-		// 	os.Exit(1)
-		// }
-		// defer f.Close()
 	}
 
 	c := make(chan os.Signal, 1)
