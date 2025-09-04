@@ -1,5 +1,5 @@
 {
-  description = "bwmenu - Bitwarden TUI menu";
+  description = "mnu workspace";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -7,47 +7,63 @@
 
   outputs = { self, nixpkgs }:
     let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
-      lib = pkgs.lib;
+      systems = [ "x86_64-linux" "aarch64-linux" ];
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (import nixpkgs { inherit system; }));
     in {
-      packages.${system} = {
-        bwmenu = pkgs.buildGoModule {
-          pname = "bwmenu";
+      packages = forAllSystems (pkgs: {
+        mnu-bw = pkgs.buildGoModule {
+          pname = "mnu-bw";
           version = "unstable";
           src = ./.;
-          vendorHash = "sha256-5sSiaeytKCRsY+XWGysMWMgNZMmtED+IRSvEVsh6FEg=";
-
-          # If main package is at repo root, no subPackages needed.
-          # subPackages = [ "." ];
-
-          nativeBuildInputs = [ pkgs.makeWrapper ];
-          postInstall = ''
-            wrapProgram "$out/bin/bwmenu" \
-              --prefix PATH : ${lib.makeBinPath [ pkgs.bitwarden-cli ]}
-          '';
-          meta = with lib; {
-            description = "Terminal UI for Bitwarden credentials";
-            homepage = "https://github.com/netbrain/bwmenu";
-            license = licenses.mit;
-            maintainers = [ ];
-            mainProgram = "bwmenu";
-          };
+          # Replace this with the suggested hash after first nix build
+vendorHash = "sha256-5sSiaeytKCRsY+XWGysMWMgNZMmtED+IRSvEVsh6FEg=";
+          subPackages = [ "cmd/mnu-bw" ];
+          propagatedBuildInputs = [ pkgs.bitwarden-cli ];
         };
-        default = self.packages.${system}.bwmenu;
-      };
+        mnu-run = pkgs.buildGoModule {
+          pname = "mnu-run";
+          version = "unstable";
+          src = ./.;
+vendorHash = "sha256-5sSiaeytKCRsY+XWGysMWMgNZMmtED+IRSvEVsh6FEg=";
+          subPackages = [ "cmd/mnu-run" ];
+        };
+        mnu-drun = pkgs.buildGoModule {
+          pname = "mnu-drun";
+          version = "unstable";
+          src = ./.;
+vendorHash = "sha256-5sSiaeytKCRsY+XWGysMWMgNZMmtED+IRSvEVsh6FEg=";
+          subPackages = [ "cmd/mnu-drun" ];
+        };
+        # A convenience package that contains all three binaries in one output
+        default = pkgs.symlinkJoin {
+          name = "mnu";
+          paths = [ self.packages.${pkgs.system}.mnu-bw self.packages.${pkgs.system}.mnu-run self.packages.${pkgs.system}.mnu-drun ];
+        };
+      });
 
-      apps.${system}.default = {
-        type = "app";
-        program = "${self.packages.${system}.bwmenu}/bin/bwmenu";
-      };
+      apps = forAllSystems (pkgs: {
+        mnu-bw = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.mnu-bw}/bin/mnu-bw";
+        };
+        mnu-run = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.mnu-run}/bin/mnu-run";
+        };
+        mnu-drun = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.mnu-drun}/bin/mnu-drun";
+        };
+        default = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.mnu-bw}/bin/mnu-bw";
+        };
+      });
 
-      devShells.${system}.default = pkgs.mkShell {
-        buildInputs = [
-          pkgs.go
-          pkgs.gh
-          pkgs.bitwarden-cli
-        ];
-      };
+      devShells = forAllSystems (pkgs: {
+        default = pkgs.mkShell {
+          buildInputs = [ pkgs.go pkgs.gh pkgs.bitwarden-cli ];
+        };
+      });
     };
 }

@@ -1,4 +1,4 @@
-module github.com/netbrain/bwmenu
+module github.com/netbrain/mnu
 
 go 1.24.6
 

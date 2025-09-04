@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"github.com/netbrain/bwmenu/internal/util"
+	"github.com/netbrain/mnu/internal/util"
 )
 
 type Config struct {
@@ -21,7 +21,7 @@ func Load() (*Config, error) {
 	v.SetConfigType("yaml")
 	home, err := os.UserHomeDir()
 	if err == nil {
-		v.AddConfigPath(filepath.Join(home, ".config", "bwmenu"))
+		v.AddConfigPath(filepath.Join(home, ".config", "mnu"))
 	}
 	v.AddConfigPath(".")
 
@@ -30,7 +30,7 @@ func Load() (*Config, error) {
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Create a default config file in ~/.config/bwmenu/config.yaml
+			// Create a default config file in ~/.config/mnu/config.yaml
 			cfgDir, derr := util.GetConfigDir()
 			if derr == nil {
 				cfgPath := filepath.Join(cfgDir, "config.yaml")

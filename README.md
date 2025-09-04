@@ -1,249 +1,151 @@
-# bwmenu
+# mnu
 
-A fast, secure terminal UI for searching and copying Bitwarden credentials.
+mnu is a small family of terminal tools:
 
-- Non-paginated action menu: copy Password, Username, URL, or OTP
-- Live search filtering over all items
-- Secure clipboard handling with auto-clear and countdown indicator
-- Works with the Bitwarden CLI directly or via the `bw serve` HTTP API
+- mnu-bw: Bitwarden TUI for searching, copying credentials, and OTP.
+- mnu-run: launcher for executables on PATH (detached).
+- mnu-drun: launcher for desktop-entry (.desktop) applications discovered via XDG (detached).
 
-
-## Features
-
-- Item search
-  - Type to filter; results update as you type.
-  - Esc clears the filter first; Esc again quits.
-- Action menu (per item)
-  - Shows only relevant actions for the selected item: Password, Username, URL (if present), and OTP (if present).
-  - All actions are shown on one screen; no pagination.
-  - After copying, a subtle icon and countdown show how long until the clipboard is cleared.
-- Secure clipboard
-  - Copies via a short-lived subprocess that clears the clipboard after a timeout.
-  - Uses a named pipe (FIFO) to cancel previous clearers if you copy again.
-  - Clears the clipboard only if the content hasn’t been changed by the user in the meantime.
-- Robust TOTP
-  - OTP is derived from the item’s TOTP secret (if present) and is copied like any other field.
-- Session aware
-  - If a Bitwarden session is already available (via keychain or `BW_SESSION`), it’s used.
-  - Otherwise, bwmenu prompts for your master password and unlocks Bitwarden.
+All three are small, fast, and work well together. mnu-bw focuses on secure clipboard handling for secrets.
 
 
-## Installation
+## Requirements
+
+- mnu-bw
+  - Bitwarden CLI (`bw`) available on PATH
+  - Clipboard helpers (atotto/clipboard requirements):
+    - Linux: typically `xclip` or `xsel`
+    - macOS: uses pbcopy/pbpaste (built in)
+    - Windows: win32 APIs
+- mnu-run: no special requirements beyond a sane PATH
+- mnu-drun: an XDG-compliant environment with .desktop files in XDG_DATA_HOME/DIRS
+
+
+## Install
 
 ### With Nix (flakes)
 
-This repo includes a flake that builds and runs bwmenu, and ensures the Bitwarden CLI is on PATH for the wrapped binary.
+This repository’s root flake builds three packages and apps:
 
 - Build:
-  - nix build .#bwmenu
-- Run (from this repo):
-  - nix run .
-- Use in another flake:
-  - Add an input to your flake:
-    - inputs.bwmenu.url = "github:netbrain/bwmenu"  (or a local path during development)
-  - Then reference the package:
-    - self.inputs.bwmenu.packages.${system}.bwmenu
+  - `nix build .#mnu-bw`
+  - `nix build .#mnu-run`
+  - `nix build .#mnu-drun`
+- Run:
+  - `nix run .#mnu-bw`
+  - `nix run .#mnu-run`
+  - `nix run .#mnu-drun`
 
-The dev shell includes Go, GitHub CLI, and bitwarden-cli:
-- nix develop
+Use in another flake:
 
-#### NixOS (flakes) declarative install
+- Add this repo as an input and reference packages `.#mnu-bw`, `.#mnu-run`, or `.#mnu-drun` from your configuration.
 
-Option A: reference the package directly in your NixOS configuration
-```
-  # flake.nix
-  {
-    description = "My host";
-
-    inputs = {
-      nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-      bwmenu.url = "github:netbrain/bwmenu"; # or a local path: path:../bwmenu
-    };
-
-    outputs = { self, nixpkgs, bwmenu, ... }@inputs: let
-      system = "x86_64-linux";
-      lib = nixpkgs.lib;
-    in {
-      nixosConfigurations.my-host = lib.nixosSystem {
-        inherit system;
-        modules = [
-          ({ pkgs, ... }: {
-            environment.systemPackages = [
-              bwmenu.packages.${system}.bwmenu
-            ];
-          })
-        ];
-      };
-    };
-  }
-  ```
-
-Option B: expose it via an overlay and install as pkgs.bwmenu
+Install all via a single alias (optional):
+- The root flake also exposes a default package that symlink-joins all three binaries.
+- You can surface it as pkgs.mnu via an overlay and install that one alias, e.g.:
 
 ```
   # flake.nix
   {
     inputs = {
       nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-      bwmenu.url = "github:netbrain/bwmenu";
+      mnu.url = "github:netbrain/mnu";
     };
 
-    outputs = { self, nixpkgs, bwmenu, ... }: let
+    outputs = { self, nixpkgs, mnu, ... }:
+    let
       system = "x86_64-linux";
-      overlays = [ (final: prev: { bwmenu = bwmenu.packages.${final.system}.bwmenu; }) ];
+      overlay = (final: prev: {
+        # Default package of the mnu flake contains all three binaries
+        mnu = mnu.packages.${final.system}.default;
+      });
     in {
       nixosConfigurations.my-host = nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [
           ({ pkgs, ... }: {
-            nixpkgs.overlays = overlays;
-            environment.systemPackages = [ pkgs.bwmenu ];
+            nixpkgs.overlays = [ overlay ];
+            environment.systemPackages = [ pkgs.mnu ];
           })
         ];
       };
     };
   }
-```
-Home Manager (flakes) example
 
-If you manage user packages via Home Manager:
-
-```
-  # flake.nix
-  {
-    inputs = {
-      nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-      home-manager.url = "github:nix-community/home-manager";
-      bwmenu.url = "github:netbrain/bwmenu";
-    };
-
-    outputs = { self, nixpkgs, home-manager, bwmenu, ... }: let
-      system = "x86_64-linux";
-    in {
-      homeConfigurations.user = home-manager.lib.homeManagerConfiguration {
-        inherit system;
-        pkgs = import nixpkgs { inherit system; };
-        modules = [
-          ({ pkgs, ... }: {
-            home.packages = [ bwmenu.packages.${pkgs.system}.bwmenu ];
-          })
-        ];
-      };
-    };
-  }
-```
-Notes
-- The wrapped bwmenu binary places bitwarden-cli (bw) on PATH automatically; you do not need to add bw separately.
-- Replace x86_64-linux with your system (e.g., aarch64-linux) as appropriate.
-- For local development, you can use a path input: bwmenu.url = "path:../bwmenu".
+A development shell is provided that includes Go, GitHub CLI, and Bitwarden CLI.
 
 ### With Go
 
-- go 1.21+ recommended
-- Install:
-  - go install github.com/netbrain/bwmenu@latest
-- Or build locally from this repo:
-  - go build ./...
-
-
-## Requirements
-
-- Bitwarden CLI (bw)
-  - On Nix: provided via the package wrapper.
-  - Otherwise: install from Bitwarden; ensure `bw` is in PATH.
-- Clipboard helpers
-  - Linux: atotto/clipboard typically requires `xclip` or `xsel` in PATH.
-  - macOS: uses pbcopy/pbpaste (built-in).
-  - Windows: supported via win32 APIs.
+- Go 1.21+ recommended
+- Install binaries:
+  - `go install github.com/netbrain/mnu/cmd/mnu-bw@latest`
+  - `go install github.com/netbrain/mnu/cmd/mnu-run@latest`
+  - `go install github.com/netbrain/mnu/cmd/mnu-drun@latest`
+- Or build locally:
+  - `go build -o mnu-bw ./cmd/mnu-bw`
+  - `go build -o mnu-run ./cmd/mnu-run`
+  - `go build -o mnu-drun ./cmd/mnu-drun`
 
 
 ## Usage
 
-- Start the TUI (single instance):
-  - bwmenu
-  - If another bwmenu TUI is already running, a new invocation exits immediately.
-- Pre-warm Bitwarden API server in the background for faster startups:
-  - bwmenu serve    # starts a background advertiser for `bw serve`; run it with & to keep it in the background
-- App runner (search PATH commands and execute):
-  - bwmenu apps     # lists executables found in PATH; Enter to run
+- Bitwarden TUI (single instance):
+  - `mnu-bw`
+  - Subcommands:
+    - `mnu-bw serve` (pre-warm and advertise `bw serve`)
+    - `mnu-bw clear-clipboard <seconds> <unique_id> < content` (internal helper; not for direct use)
+- PATH launcher:
+  - `mnu-run`
+- Desktop-entry launcher:
+  - `mnu-drun`
 
-- Keybindings (default):
-  - Global
-    - Ctrl-C: quit
-    - Esc: clear search if non-empty; otherwise quit
-  - Search/List
-    - Type to filter items
-    - Up/Down, Ctrl-J/Ctrl-K: navigate items
-    - Enter: open the action menu for the selected item
-  - Action menu
-    - Up/Down, Ctrl-J/Ctrl-K: navigate actions
-    - Enter: copy the selected action’s value
-    - Esc: go back to the item list
+Keybindings (TUI):
+- Global: Ctrl-C to quit; Esc to clear search or back out
+- Search/List: type to filter; Up/Down (or Ctrl-J/Ctrl-K) to navigate; Enter to select
+- Action menu: Up/Down to navigate; Enter to execute action; Esc to go back
 
 
-## Configuration
+## Configuration (mnu-bw)
 
-bwmenu reads configuration from `~/.config/bwmenu/config.yaml`. If no file is found, it writes a default one.
+mnu-bw reads configuration from `~/.config/mnu/config.yaml`. If missing, a default is created.
 
-- Defaults (applied and written when missing):
-  - clipboard_timeout: 15s
-  - api_mode: true
+Defaults:
 
-- Example `~/.config/bwmenu/config.yaml`:
+```
+clipboard_timeout: 15s
+api_mode: true
+```
 
-  clipboard_timeout: 30s
-  api_mode: true
+- `clipboard_timeout`: how long clipboard content remains before being cleared (Go duration, e.g., 10s, 30s, 2m)
+- `api_mode`: when true, mnu-bw orchestrates `bw serve` and talks HTTP; when false, it uses the `bw` CLI directly
 
-- Options
-  - clipboard_timeout
-    - How long the copied value remains on the clipboard before being cleared.
-    - Accepts Go duration strings (e.g., 10s, 45s, 2m).
-  - api_mode
-    - When true, bwmenu orchestrates `bw serve` and communicates over HTTP.
-    - When false, bwmenu uses the `bw` CLI directly for all operations.
-
-Environment
-- BW_SESSION: if set, bwmenu will use it (and not prompt for password).
-- --debug: verbose logs to `debug.log`.
+Environment:
+- `BW_SESSION`: if set, mnu-bw will use it (no unlock prompt)
+- `--debug` flag: logs to `debug.log`
 
 
 ## How it works (high level)
 
-- Startup
-  - Loads config (creates a default file if missing).
-  - If `api_mode: true`, starts a `bw serve` subprocess (internal/serve) and talks to it over HTTP.
-  - Otherwise, invokes the `bw` CLI for status, listing items, and retrieving secrets.
-  - Reuses an existing Bitwarden session from the keychain or `BW_SESSION` when available; otherwise prompts for master password and unlocks Bitwarden.
-
-- UI
-  - Built with Bubble Tea/Bubbles and Lip Gloss for styling and input fields sized to the terminal.
-  - Search input and item list on the main screen; action menu shows all copy actions for the selected item.
-
-- Clipboard security
-  - Copying spawns a helper subprocess of bwmenu with a hidden `clear-clipboard` subcommand.
-  - The secret is streamed via stdin to avoid leaking in arguments.
-  - The helper schedules a clear after the configured timeout but checks the clipboard content hash first to avoid overwriting user changes.
-  - A named pipe allows canceling an in-flight clearer if you copy again (so the newest copy wins).
-  - The UI shows an icon and per-item countdown until clearing; multiple copies are disambiguated with a generation token.
-
-
-## Troubleshooting
-
-- "bw not found": install Bitwarden CLI and ensure it’s on PATH. With Nix, it’s wrapped automatically.
-- Clipboard errors on Linux: make sure `xclip` or `xsel` is installed and available in PATH.
-- Not seeing OTP: only items with a TOTP secret expose the OTP action.
-- No Username/Password actions: those actions appear only when the selected item has that field.
-- API mode issues: try setting `api_mode: false` to use the CLI directly, or ensure `bw serve` runs locally without errors.
-- Session prompts too often: verify that `BW_SESSION` is exported and/or the session key can be stored/retrieved by the keychain backend.
+- API vs CLI
+  - In `api_mode: true`, `bw serve` is started (or discovered if already advertised) and used for operations.
+  - In `api_mode: false`, mnu-bw shells out to the `bw` CLI for status, listing, and secret retrieval.
+- Secure clipboard
+  - Copy actions stream secret data to an internal helper via stdin (no secrets in argv) and schedule clipboard clearing.
+  - A named pipe (FIFO) cancels any previous clearer so the newest copy “wins.”
+  - The helper checks the clipboard content hash before clearing to avoid clobbering user changes.
+- Runners
+  - mnu-run lists executables on PATH (deduplicated) and launches selected entries in the background (detached session).
+  - mnu-drun discovers .desktop files via XDG_DATA_HOME and XDG_DATA_DIRS and launches via their `Exec` lines (`/bin/sh -c` to support quoting).
 
 
 ## Contributing
 
-Issues and pull requests are welcome. Ideas for future improvements:
-- OSC52 clipboard fallback for SSH/tmux environments
-- Tests around clipboard management and timer logic
-- More item details and additional actions
-- Subtle progress indicators or fade-out effects for the countdown
+Issues and PRs are welcome.
+
+Potential enhancements:
+- Tests for clipboard logic and timers
+- Additional CLI flags and UX polish
+- OSC52 clipboard fallback for remote shells
 
 
 ## License

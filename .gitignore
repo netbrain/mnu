@@ -1,4 +1,7 @@
 .direnv/
-bwmenu
+mnu-bw
+mnu-run
+mnu-drun
 debug.log
-result
+result*
+bwmenu

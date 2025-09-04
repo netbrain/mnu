@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/netbrain/bwmenu/internal/util"
+	"github.com/netbrain/mnu/internal/util"
 )
 
 const advertiseSock = "serve.sock"

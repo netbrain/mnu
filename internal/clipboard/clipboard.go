@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/netbrain/bwmenu/internal/util"
+	"github.com/netbrain/mnu/internal/util"
 )
 
 const uniqueIDFileName = "clipboard_clearer.id"

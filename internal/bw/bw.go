@@ -11,8 +11,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/netbrain/bwmenu/internal/debugflag"
-	"github.com/netbrain/bwmenu/internal/keychain"
+	"github.com/netbrain/mnu/internal/debugflag"
+	"github.com/netbrain/mnu/internal/keychain"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )

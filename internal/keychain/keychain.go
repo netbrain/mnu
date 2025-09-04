@@ -9,7 +9,7 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
-const serviceName = "bwmenu"
+const serviceName = "mnu"
 
 func SetSessionKey(password string) error {
 	user := os.Getenv("USER")
@@ -86,7 +86,7 @@ func getSessionKeyPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	configDir := filepath.Join(home, ".config", "bwmenu")
+configDir := filepath.Join(home, ".config", "mnu")
 	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return "", err
 	}
