@@ -50,7 +50,7 @@ The dev shell includes Go, GitHub CLI, and bitwarden-cli:
 #### NixOS (flakes) declarative install
 
 Option A: reference the package directly in your NixOS configuration
-
+```
   # flake.nix
   {
     description = "My host";
@@ -76,9 +76,11 @@ Option A: reference the package directly in your NixOS configuration
       };
     };
   }
+  ```
 
 Option B: expose it via an overlay and install as pkgs.bwmenu
 
+```
   # flake.nix
   {
     inputs = {
@@ -101,11 +103,12 @@ Option B: expose it via an overlay and install as pkgs.bwmenu
       };
     };
   }
-
+```
 Home Manager (flakes) example
 
 If you manage user packages via Home Manager:
 
+```
   # flake.nix
   {
     inputs = {
@@ -128,7 +131,7 @@ If you manage user packages via Home Manager:
       };
     };
   }
-
+```
 Notes
 - The wrapped bwmenu binary places bitwarden-cli (bw) on PATH automatically; you do not need to add bw separately.
 - Replace x86_64-linux with your system (e.g., aarch64-linux) as appropriate.
@@ -161,6 +164,8 @@ Notes
   - If another bwmenu TUI is already running, a new invocation exits immediately.
 - Pre-warm Bitwarden API server in the background for faster startups:
   - bwmenu serve    # starts a background advertiser for `bw serve`; run it with & to keep it in the background
+- App runner (search PATH commands and execute):
+  - bwmenu apps     # lists executables found in PATH; Enter to run
 
 - Keybindings (default):
   - Global
