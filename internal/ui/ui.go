@@ -9,9 +9,9 @@ import (
     "github.com/charmbracelet/bubbles/textinput"
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/lipgloss"
-    cfgpkg "github.com/netbrain/bwmenu/internal/config"
-    "github.com/netbrain/bwmenu/internal/clipboard"
-    bwpkg "github.com/netbrain/bwmenu/internal/bw"
+    cfgpkg "github.com/netbrain/mnu/internal/config"
+    bwpkg "github.com/netbrain/mnu/internal/bw"
+    clipboard "github.com/netbrain/mnu/internal/clipboard"
 )
 
 
