@@ -44,6 +44,7 @@ Install all via a single alias (optional):
 - The root flake also exposes a default package that symlink-joins all three binaries.
 - You can surface it as pkgs.mnu via an overlay and install that one alias, e.g.:
 
+```
   # flake.nix
   {
     inputs = {

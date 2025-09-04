@@ -59,6 +59,26 @@ func AcquireNamedLock(lockFileName string) (*os.File, error) {
 	return f, nil
 }
 
+// AcquireNamedLock acquires an exclusive, non-blocking lock on the given lock file
+// name under the bwmenu config directory. The returned *os.File must be kept open
+// to hold the lock and closed (via ReleaseAppLock) to release it.
+func AcquireNamedLock(lockFileName string) (*os.File, error) {
+	configDir, err := GetConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	lockPath := filepath.Join(configDir, lockFileName)
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	return f, nil
+}
+
 // ReleaseAppLock releases the lock acquired by AcquireAppLock.
 func ReleaseAppLock(f *os.File) error {
 	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
