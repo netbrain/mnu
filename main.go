@@ -11,21 +11,21 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
-	"strings"
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
-	uipkg "github.com/netbrain/bwmenu/internal/ui"
-	runner "github.com/netbrain/bwmenu/internal/runner"
-	bwpkg "github.com/netbrain/bwmenu/internal/bw"
+	bwpkg "github.com/netbrain/mnu/internal/bw"
+	runner "github.com/netbrain/mnu/internal/runner"
+	uipkg "github.com/netbrain/mnu/internal/ui"
 
-	cfgpkg "github.com/netbrain/bwmenu/internal/config"
-	"github.com/netbrain/bwmenu/internal/debugflag"
-	"github.com/netbrain/bwmenu/internal/keychain"
-	"github.com/netbrain/bwmenu/internal/serve"
-	"github.com/netbrain/bwmenu/internal/util"
+	cfgpkg "github.com/netbrain/mnu/internal/config"
+	"github.com/netbrain/mnu/internal/debugflag"
+	"github.com/netbrain/mnu/internal/keychain"
+	"github.com/netbrain/mnu/internal/serve"
+	"github.com/netbrain/mnu/internal/util"
 )
 
 var bwManager bwpkg.Manager

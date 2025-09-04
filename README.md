@@ -72,6 +72,7 @@ Install all via a single alias (optional):
     };
   }
 ```
+
 A development shell is provided that includes Go, GitHub CLI, and Bitwarden CLI.
 
 ### With Go

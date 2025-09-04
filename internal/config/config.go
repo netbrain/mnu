@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/viper"
 	"github.com/netbrain/mnu/internal/util"
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -50,4 +50,3 @@ func Load() (*Config, error) {
 	}
 	return &cfg, nil
 }
-

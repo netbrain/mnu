@@ -51,7 +51,9 @@ func InitialDesktopModel() tea.Model {
 
 	all := discoverDesktopEntries()
 	items := make([]list.Item, len(all))
-	for i := range all { items[i] = all[i] }
+	for i := range all {
+		items[i] = all[i]
+	}
 	l.SetItems(items)
 
 	vis := make([]desktopItem, len(all))
@@ -67,7 +69,9 @@ func (m DesktopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		contentWidth := m.width
-		if contentWidth < 1 { contentWidth = 1 }
+		if contentWidth < 1 {
+			contentWidth = 1
+		}
 		m.search.Width = contentWidth - len(m.search.Prompt)
 		m.list.SetSize(m.width, max(m.list.Height(), max(5, m.height-4)))
 		return m, nil
@@ -80,7 +84,9 @@ func (m DesktopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.search.SetValue("")
 				m.vis = m.all
 				li := make([]list.Item, len(m.vis))
-				for i := range m.vis { li[i] = m.vis[i] }
+				for i := range m.vis {
+					li[i] = m.vis[i]
+				}
 				m.list.SetItems(li)
 				return m, nil
 			}
@@ -108,7 +114,9 @@ func (m DesktopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vis = vis
 		}
 		li := make([]list.Item, len(m.vis))
-		for i := range m.vis { li[i] = m.vis[i] }
+		for i := range m.vis {
+			li[i] = m.vis[i]
+		}
 		m.list.SetItems(li)
 		if isListNavKey(msg) {
 			m.list, _ = m.list.Update(msg)
@@ -121,7 +129,7 @@ func (m DesktopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m DesktopModel) View() string {
-	return m.search.View()+"\n\n" + m.list.View()
+	return m.search.View() + "\n\n" + m.list.View()
 }
 
 // discoverDesktopEntries scans .desktop files per XDG Base Directory spec only.
@@ -141,7 +149,9 @@ func discoverDesktopEntries() []desktopItem {
 	}
 	for _, d := range strings.Split(dataDirs, ":") {
 		d = strings.TrimSpace(d)
-		if d == "" { continue }
+		if d == "" {
+			continue
+		}
 		dirs = append(dirs, filepath.Join(d, "applications"))
 	}
 
@@ -149,13 +159,21 @@ func discoverDesktopEntries() []desktopItem {
 	var out []desktopItem
 	for _, dir := range dirs {
 		entries, err := os.ReadDir(dir)
-		if err != nil { continue }
+		if err != nil {
+			continue
+		}
 		for _, de := range entries {
-			if de.IsDir() { continue }
+			if de.IsDir() {
+				continue
+			}
 			name := de.Name()
-			if !strings.HasSuffix(strings.ToLower(name), ".desktop") { continue }
+			if !strings.HasSuffix(strings.ToLower(name), ".desktop") {
+				continue
+			}
 			full := filepath.Join(dir, name)
-			if _, ok := seenFiles[strings.ToLower(full)]; ok { continue }
+			if _, ok := seenFiles[strings.ToLower(full)]; ok {
+				continue
+			}
 			if it, ok := parseDesktopFile(full); ok {
 				seenFiles[strings.ToLower(full)] = struct{}{}
 				out = append(out, it)
@@ -169,7 +187,9 @@ func discoverDesktopEntries() []desktopItem {
 // parseDesktopFile extracts Name (localized) and Exec from the [Desktop Entry] section, applying basic filters.
 func parseDesktopFile(path string) (desktopItem, bool) {
 	data, err := os.ReadFile(path)
-	if err != nil { return desktopItem{}, false }
+	if err != nil {
+		return desktopItem{}, false
+	}
 	lines := strings.Split(string(data), "\n")
 	inSection := false
 	nameBase := ""
@@ -180,12 +200,16 @@ func parseDesktopFile(path string) (desktopItem, bool) {
 	typeApp := false
 	for _, ln := range lines {
 		l := strings.TrimSpace(ln)
-		if l == "" || strings.HasPrefix(l, "#") { continue }
+		if l == "" || strings.HasPrefix(l, "#") {
+			continue
+		}
 		if strings.HasPrefix(l, "[") && strings.HasSuffix(l, "]") {
 			inSection = strings.EqualFold(l, "[Desktop Entry]")
 			continue
 		}
-		if !inSection { continue }
+		if !inSection {
+			continue
+		}
 		if i := strings.Index(l, "="); i > 0 {
 			k := strings.TrimSpace(l[:i])
 			v := strings.TrimSpace(l[i+1:])
@@ -199,7 +223,9 @@ func parseDesktopFile(path string) (desktopItem, bool) {
 			case "Type":
 				typeApp = strings.EqualFold(v, "Application")
 			case "Name":
-				if nameBase == "" { nameBase = v }
+				if nameBase == "" {
+					nameBase = v
+				}
 			case "TryExec":
 				// optional: ignore for now
 			case "Exec":
@@ -213,7 +239,9 @@ func parseDesktopFile(path string) (desktopItem, bool) {
 	}
 	// Choose best localized name
 	name := chooseLocalizedName(nameBase, nameLocales)
-	if !typeApp || hidden || noDisplay || execLine == "" || name == "" { return desktopItem{}, false }
+	if !typeApp || hidden || noDisplay || execLine == "" || name == "" {
+		return desktopItem{}, false
+	}
 	// Remove field codes like %f, %F, %u, %U, %i, %c, %k per spec. For our purposes, strip them.
 	replacer := strings.NewReplacer("%f", "", "%F", "", "%u", "", "%U", "", "%i", "", "%c", "", "%k", "", "%%", "%")
 	execClean := strings.TrimSpace(replacer.Replace(execLine))
@@ -222,27 +250,44 @@ func parseDesktopFile(path string) (desktopItem, bool) {
 
 // chooseLocalizedName selects the best Name given locale env vars.
 func chooseLocalizedName(base string, locales map[string]string) string {
-	if len(locales) == 0 { return base }
+	if len(locales) == 0 {
+		return base
+	}
 	// Build preference order from LC_MESSAGES or LANG
 	pref := []string{}
-	if v := strings.TrimSpace(os.Getenv("LC_MESSAGES")); v != "" { pref = append(pref, v) }
-	if v := strings.TrimSpace(os.Getenv("LANG")); v != "" { pref = append(pref, v) }
+	if v := strings.TrimSpace(os.Getenv("LC_MESSAGES")); v != "" {
+		pref = append(pref, v)
+	}
+	if v := strings.TrimSpace(os.Getenv("LANG")); v != "" {
+		pref = append(pref, v)
+	}
 	// Normalize variants: strip encoding (@variant and .charset), include language only
 	norms := []string{}
 	for _, p := range pref {
 		p1 := p
-		if i := strings.IndexAny(p1, ".@"); i >= 0 { p1 = p1[:i] }
+		if i := strings.IndexAny(p1, ".@"); i >= 0 {
+			p1 = p1[:i]
+		}
 		norms = append(norms, p1)
-		if i := strings.Index(p1, "_"); i > 0 { norms = append(norms, p1[:i]) } else if len(p1) >= 2 { norms = append(norms, p1[:2]) }
+		if i := strings.Index(p1, "_"); i > 0 {
+			norms = append(norms, p1[:i])
+		} else if len(p1) >= 2 {
+			norms = append(norms, p1[:2])
+		}
 	}
 	// Lowercase keys for matching
 	for _, k := range append(pref, norms...) {
-		if v, ok := locales[strings.ToLower(k)]; ok && strings.TrimSpace(v) != "" { return v }
+		if v, ok := locales[strings.ToLower(k)]; ok && strings.TrimSpace(v) != "" {
+			return v
+		}
 	}
 	// Fallback to any provided locale if base is empty
 	if strings.TrimSpace(base) == "" {
-		for _, v := range locales { if strings.TrimSpace(v) != "" { return v } }
+		for _, v := range locales {
+			if strings.TrimSpace(v) != "" {
+				return v
+			}
+		}
 	}
 	return base
 }
-

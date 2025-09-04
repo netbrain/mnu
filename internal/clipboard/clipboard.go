@@ -21,7 +21,9 @@ func Copy(text string, clearAfter time.Duration) error {
 	b := []byte(text)
 	defer func() {
 		text = ""
-		for i := range b { b[i] = 0 }
+		for i := range b {
+			b[i] = 0
+		}
 	}()
 	return CopyBytes(b, clearAfter)
 }
@@ -69,11 +71,12 @@ func CopyBytes(content []byte, clearAfter time.Duration) error {
 		return fmt.Errorf("failed to write content to clearer stdin: %w", err)
 	}
 	stdin.Close()
-	for i := range content { content[i] = 0 }
+	for i := range content {
+		content[i] = 0
+	}
 
 	if err := ioutil.WriteFile(uniqueIDFilePath, []byte(newUniqueID), 0644); err != nil {
 		return fmt.Errorf("failed to write unique ID file: %w", err)
 	}
 	return nil
 }
-
