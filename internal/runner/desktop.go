@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	style "github.com/netbrain/mnu/internal/style"
 )
 
 type desktopItem struct {
@@ -43,7 +44,7 @@ func InitialDesktopModel() tea.Model {
 	si.Prompt = "/ "
 	si.Focus()
 
-	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	l := list.New([]list.Item{}, style.NewListDelegate(), 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
@@ -68,7 +69,7 @@ func (m DesktopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		contentWidth := m.width - docStyle.GetHorizontalFrameSize()
+		contentWidth := m.width - style.DocStyle.GetHorizontalFrameSize()
 		if contentWidth < 1 {
 			contentWidth = 1
 		}
@@ -129,7 +130,7 @@ func (m DesktopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m DesktopModel) View() string {
-	return docStyle.Render(m.search.View() + "\n\n" + m.list.View())
+	return style.DocStyle.Render(m.search.View() + "\n\n" + m.list.View())
 }
 
 // discoverDesktopEntries scans .desktop files per XDG Base Directory spec only.

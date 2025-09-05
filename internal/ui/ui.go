@@ -12,9 +12,8 @@ import (
 	bwpkg "github.com/netbrain/mnu/internal/bw"
 	clipboard "github.com/netbrain/mnu/internal/clipboard"
 	cfgpkg "github.com/netbrain/mnu/internal/config"
+	style "github.com/netbrain/mnu/internal/style"
 )
-
-var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 // UI states
 const (
@@ -128,14 +127,14 @@ func InitialModel(manager bwpkg.Manager, cfg *cfgpkg.Config) tea.Model {
 	si.Prompt = "/ "
 
 	// list placeholder
-	l := list.New([]list.Item{}, newDelegate(), 0, 0)
+	l := list.New([]list.Item{}, style.NewListDelegate(), 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 
 	// actions list
-	act := list.New([]list.Item{}, newActionsDelegate(), 0, 0)
+	act := list.New([]list.Item{}, style.NewActionsDelegate(), 0, 0)
 	act.SetShowTitle(false)
 	act.SetShowStatusBar(false)
 	act.SetFilteringEnabled(false)
@@ -164,7 +163,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 		// Compute content width inside the document frame
-		contentWidth := m.width - docStyle.GetHorizontalFrameSize()
+		contentWidth := m.width - style.DocStyle.GetHorizontalFrameSize()
 		if contentWidth < 1 {
 			contentWidth = 1
 		}
@@ -414,17 +413,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	switch m.state {
 	case stateCheckingLogin:
-		return docStyle.Render("Checking login status…")
+		return style.DocStyle.Render("Checking login status…")
 	case stateUnlockPrompt:
-		return docStyle.Render(m.password.View())
+		return style.DocStyle.Render(m.password.View())
 	case stateLoadingItems:
-		return docStyle.Render("Loading items…")
+		return style.DocStyle.Render("Loading items…")
 	case stateList:
-		return docStyle.Render(m.search.View() + "\n\n" + m.list.View())
+		return style.DocStyle.Render(m.search.View() + "\n\n" + m.list.View())
 	case stateActionMenu:
-		return docStyle.Render("Selected: " + m.selected.title + "\n" + m.actions.View())
+		return style.DocStyle.Render("Selected: " + m.selected.title + "\n" + m.actions.View())
 	case stateDone:
-		return docStyle.Render("")
+		return style.DocStyle.Render("")
 	default:
 		return ""
 	}
