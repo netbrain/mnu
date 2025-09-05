@@ -68,7 +68,7 @@ func (m DesktopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		contentWidth := m.width
+		contentWidth := m.width - docStyle.GetHorizontalFrameSize()
 		if contentWidth < 1 {
 			contentWidth = 1
 		}
@@ -129,7 +129,7 @@ func (m DesktopModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m DesktopModel) View() string {
-	return m.search.View() + "\n\n" + m.list.View()
+	return docStyle.Render(m.search.View() + "\n\n" + m.list.View())
 }
 
 // discoverDesktopEntries scans .desktop files per XDG Base Directory spec only.

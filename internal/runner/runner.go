@@ -9,7 +9,10 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
+
+var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 type execItem struct {
 	Name string
@@ -69,7 +72,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		contentWidth := m.width
+		contentWidth := m.width - docStyle.GetHorizontalFrameSize()
 		if contentWidth < 1 {
 			contentWidth = 1
 		}
@@ -135,7 +138,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	return m.search.View() + "\n\n" + m.list.View()
+	return docStyle.Render(m.search.View() + "\n\n" + m.list.View())
 }
 
 func max(a, b int) int {
