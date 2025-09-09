@@ -1,5 +1,7 @@
 # mnu
 
+<img width="440" height="311" alt="mnu" src="https://github.com/user-attachments/assets/c85e7cbc-5021-47d7-a547-b3decc4fed51" />
+
 mnu is a small family of terminal tools:
 
 - mnu-bw: Bitwarden TUI for searching, copying credentials, and OTP.
