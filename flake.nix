@@ -54,22 +54,22 @@
         # A convenience package that contains all three binaries in one output
         default = pkgs.symlinkJoin {
           name = "mnu";
-          paths = [ self.packages.${pkgs.system}.mnu-bw self.packages.${pkgs.system}.mnu-run self.packages.${pkgs.system}.mnu-drun ];
+          paths = [ self.packages.${pkgs.stdenv.hostPlatform.system}.mnu-bw self.packages.${pkgs.stdenv.hostPlatform.system}.mnu-run self.packages.${pkgs.stdenv.hostPlatform.system}.mnu-drun ];
         };
       });
 
       apps = forAllSystems ({ pkgs }: {
         mnu-bw = {
           type = "app";
-          program = "${self.packages.${pkgs.system}.mnu-bw}/bin/mnu-bw";
+          program = "${self.packages.${pkgs.stdenv.hostPlatform.system}.mnu-bw}/bin/mnu-bw";
         };
         mnu-run = {
           type = "app";
-          program = "${self.packages.${pkgs.system}.mnu-run}/bin/mnu-run";
+          program = "${self.packages.${pkgs.stdenv.hostPlatform.system}.mnu-run}/bin/mnu-run";
         };
         mnu-drun = {
           type = "app";
-          program = "${self.packages.${pkgs.system}.mnu-drun}/bin/mnu-drun";
+          program = "${self.packages.${pkgs.stdenv.hostPlatform.system}.mnu-drun}/bin/mnu-drun";
         };
       });
 
